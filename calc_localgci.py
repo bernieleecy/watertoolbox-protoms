@@ -1,6 +1,5 @@
-# Python script to determine the equilibrium number of waters in a predefined region.
-# Contributers: Gregory A. Ross
-#               Matteo Aldeghi
+# Written by Gregory A. Ross
+# Contributed to by Matteo Aldeghi
 
 import numpy as np
 import matplotlib.pyplot as plt
