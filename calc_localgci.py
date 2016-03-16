@@ -1,5 +1,4 @@
 # Python script to determine the equilibrium number of waters in a predefined region.
-
 # Contributers: Gregory A. Ross
 #               Matteo Aldeghi
 
@@ -122,7 +121,6 @@ def read_gcmc(num_inputs,directories,rfilename,afilename,residue,atom,skip,mode,
     return (B,N)
 
 
-
 #########################################################
 # Miscellaneous
 def MergePDFs(filenames,outfname):
@@ -162,7 +160,7 @@ if __name__ == "__main__":
     parser.add_argument('-i','--input',help="the name of the pickle data package that contains the pre-processed and saved ANNss, default= None",default=None)
     parser.add_argument('--radius',help="Radius of the hydration sites in Angstroms, default=1.4",type=float,default=1.4)
     parser.add_argument('--maxsites',type=int,help="Maximum number of hydration sites to consider; the highest occupied sites will be considered first. Default is all.",default=9999)
-    parser.add_argument('--bootstrap',help="The number of bootstrap samples performed on the free energy estimates, default=None",type=int,default=None)
+    parser.add_argument('--bootstraps',help="The number of bootstrap samples performed on the free energy estimates, default=None",type=int,default=None)
     parser.add_argument('--steps',nargs="+", help="the number of steps to be fitted for each titration box",default=None)
     parser.add_argument('--fit_options',help="additional options to be passed to the artificial neural network",default=None)
     args = parser.parse_args()
@@ -189,14 +187,12 @@ if __name__ == "__main__":
             (B, N) = read_gcmc(num_inputs,args.directories,args.resultsfiles,args.pdbfiles,args.residue,args.atom,args.skip,mode="clusters",structures=sites_centers,radius=args.radius)
         elif args.boxes != None and args.clusters == None:
             (B, N) = read_gcmc(num_inputs,args.directories,args.resultsfiles,args.pdbfiles,args.residue,args.atom,args.skip,mode="boxes",structures=boxes)
-        ANNs = {}
-        data = {"Adams":B,"N":N, "ANNs":ANNs}
+        data = {"Adams":B,"N":N}
         pickle.dump( data, open(args.out, "wb" ) )
     else:
         data = pickle.load( open( args.input, "rb" ) )
         B = data["Adams"]
         N = data["N"]
-        ANNs = data["ANNs"]
 
   # Specifying the default options for artificial neural network, and reading in values from the command line.
     fit_dict = {"monotonic":True, "repeats":10, "randstarts":1000, "iterations":100, "grad_tol_low":-3, "grad_tol_high":1, "pin_min":0.0, "pin_max":None, "cost":"msd", "c":2.0, "verbose":False}
@@ -214,31 +210,39 @@ if __name__ == "__main__":
                     fit_dict[options[i]]= str(options[i+1])
 
     print "\nFREE ENERGIES:"
-    print "'Site' 'Ideal gas transfer energy' 'Binding energy'   'Standard deviation'"
+    if args.bootstraps != None:
+        print "Values and error bars calculated using %i bootstrap samples of the titration data." % args.bootstraps
+        print "'Site' 'Ideal gas transfer energy' 'Binding energy'   'Standard deviation'"
+    else:
+        print "'Site' 'Ideal gas transfer energy' 'Binding energy'"
+
+    ANNs = {}
     for b in range(num_inputs):
         x = np.array(B)
         y = np.array(N[b])
         N_range = np.arange(np.round(y.min()),np.round(y.max())+1)
-        ANNs[b], models = calc_gci.fit_ensemble(x=x,y=y,size=steps[b],verbose=False,pin_min=fit_dict["pin_min"],pin_max=fit_dict["pin_max"],cost=fit_dict["cost"],c=fit_dict["c"],randstarts=fit_dict["randstarts"],repeats=fit_dict["repeats"],iterations=fit_dict["iterations"])
-        dG_single = calc_gci.insertion_pmf(N_range,ANNs[b])
-        if args.bootstrap != None:
+        if args.bootstraps == None:
+            ANNs[b], models = calc_gci.fit_ensemble(x=x,y=y,size=steps[b],verbose=False,pin_min=fit_dict["pin_min"],pin_max=fit_dict["pin_max"],cost=fit_dict["cost"],c=fit_dict["c"],randstarts=fit_dict["randstarts"],repeats=fit_dict["repeats"],iterations=fit_dict["iterations"])
+            dG_single = calc_gci.insertion_pmf(N_range,ANNs[b])
+            print " %4.2f %16.2f     %18.2f" %(b+1, dG_single[1],dG_single[1]-dG_hyd)
+        else:
             indices = range(x.size)
-            gci_dGs = np.zeros(args.bootstrap)
-            inflection_dGs = np.zeros(args.bootstrap)
-            for boot in range(args.bootstrap):
+            gci_dGs = np.zeros(args.bootstraps)
+            inflection_dGs = np.zeros(args.bootstraps)
+            for boot in range(args.bootstraps):
                 sample_inds = np.random.choice(indices,size=x.size)
                 x_sample = x[sample_inds]
                 y_sample = y[sample_inds]
                 ANNs_boot, models = calc_gci.fit_ensemble(x=x_sample,y=y_sample,size=steps[b],verbose=False,pin_min=fit_dict["pin_min"],pin_max=fit_dict["pin_max"],cost=fit_dict["cost"],c=fit_dict["c"],randstarts=fit_dict["randstarts"],repeats=fit_dict["repeats"],iterations=fit_dict["iterations"])
                 gci_dGs[boot] = calc_gci.insertion_pmf(N_range,ANNs_boot)[-1]
 #                inflection_dGs[boot] = -ANNs_boot.weights[0][0]/ANNs[b].weights[0][1]*0.592
-#        print "\nIDEAL GAS TRANSFER FREE ENERGY for box: %s" % b
-#        print "    Water numbers considered =        ", N_range
-#        print "    Free Energy calculated with GCI = ", dG_single, "kcal/mol"
-#        print "    Free energy calculated via inflection point = ",  -ANNs[b].weights[0][0]/ANNs[b].weights[0][1]*0.592, "kcal/mol"
-#        print "    Free Energy calculated with bootstrap GCI = ", gci_dGs.mean(),"+/-",gci_dGs.std(), "kcal/mol"
-#        print "    Free energy calculated via bootstrap inflection point = ",inflection_dGs.mean(),"+/-",inflection_dGs.std() ,"kcal/mol"
-        print " %4.2f %16.2f     %18.2f  %18.2f" %(b+1, dG_single[1],dG_single[1]-dG_hyd,gci_dGs.std() )
+#           print "\nIDEAL GAS TRANSFER FREE ENERGY for box: %s" % b
+#           print "    Water numbers considered =        ", N_range
+#           print "    Free Energy calculated with GCI = ", dG_single, "kcal/mol"
+#           print "    Free energy calculated via inflection point = ",  -ANNs[b].weights[0][0]/ANNs[b].weights[0][1]*0.592, "kcal/mol"
+#           print "    Free Energy calculated with bootstrap GCI = ", gci_dGs.mean(),"+/-",gci_dGs.std(), "kcal/mol"
+#           print "    Free energy calculated via bootstrap inflection point = ",inflection_dGs.mean(),"+/-",inflection_dGs.std() ,"kcal/mol"
+            print " %4.2f %16.2f     %18.2f  %18.2f" %(b+1, gci_dGs.mean() ,gci_dGs.mean()-dG_hyd,gci_dGs.std() )
 
     print "\n"
     for b in range(num_inputs):
