@@ -163,6 +163,7 @@ if __name__ == "__main__":
     parser.add_argument('--bootstraps',help="The number of bootstrap samples performed on the free energy estimates, default=None",type=int,default=None)
     parser.add_argument('--steps',nargs="+", help="the number of steps to be fitted for each titration box",default=None)
     parser.add_argument('--fit_options',help="additional options to be passed to the artificial neural network",default=None)
+    parser.add_argument('--pdf',action='store_true',help="whether to save figures as PDFs",default=False)
     args = parser.parse_args()
 
     dG_hyd = -6.3
@@ -253,8 +254,17 @@ if __name__ == "__main__":
             ANNs[b].x = np.linspace(start=B.min(),stop=B.max(),num=100)
             ANNs[b].forward()
             currfig.plot(ANNs[b].x,ANNs[b].predicted,color="red",linewidth=3)
+        currfig.title("Site %i" %(b+1))
+        if args.pdf == True:
+            currfig.savefig("Local_gci_site_%s.pdf" %(b+1))
         currfig.show(block=False)
 
     print "\nType enter to quit\n>"
     raw_input()
+
+    if args.pdf == True:
+        from PyPDF2 import PdfFileMerger, PdfFileReader
+        filenames = glob.glob('Local_gci_site*pdf')
+        MergePDFs(filenames,'local_gci.pdf')
+        purge('./', 'Local_gci_*pdf')
 
