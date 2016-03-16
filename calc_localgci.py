@@ -230,19 +230,15 @@ if __name__ == "__main__":
             indices = range(x.size)
             gci_dGs = np.zeros(args.bootstraps)
             inflection_dGs = np.zeros(args.bootstraps)
+            ANNs[b]=[]
             for boot in range(args.bootstraps):
                 sample_inds = np.random.choice(indices,size=x.size)
                 x_sample = x[sample_inds]
                 y_sample = y[sample_inds]
                 ANNs_boot, models = calc_gci.fit_ensemble(x=x_sample,y=y_sample,size=steps[b],verbose=False,pin_min=fit_dict["pin_min"],pin_max=fit_dict["pin_max"],cost=fit_dict["cost"],c=fit_dict["c"],randstarts=fit_dict["randstarts"],repeats=fit_dict["repeats"],iterations=fit_dict["iterations"])
+                ANNs[b].append(ANNs_boot)
                 gci_dGs[boot] = calc_gci.insertion_pmf(N_range,ANNs_boot)[-1]
-#                inflection_dGs[boot] = -ANNs_boot.weights[0][0]/ANNs[b].weights[0][1]*0.592
-#           print "\nIDEAL GAS TRANSFER FREE ENERGY for box: %s" % b
-#           print "    Water numbers considered =        ", N_range
-#           print "    Free Energy calculated with GCI = ", dG_single, "kcal/mol"
-#           print "    Free energy calculated via inflection point = ",  -ANNs[b].weights[0][0]/ANNs[b].weights[0][1]*0.592, "kcal/mol"
-#           print "    Free Energy calculated with bootstrap GCI = ", gci_dGs.mean(),"+/-",gci_dGs.std(), "kcal/mol"
-#           print "    Free energy calculated via bootstrap inflection point = ",inflection_dGs.mean(),"+/-",inflection_dGs.std() ,"kcal/mol"
+                #inflection_dGs[boot] = -ANNs_boot.weights[0][0]/ANNs[b].weights[0][1]*0.592        # To estimate the free energy from the point of inflection.
             print " %4.2f %16.2f     %18.2f  %18.2f" %(b+1, gci_dGs.mean() ,gci_dGs.mean()-dG_hyd,gci_dGs.std() )
 
     print "\n"
@@ -251,10 +247,15 @@ if __name__ == "__main__":
         currfig = plt
         currfig.scatter(B, N[b],color="black")
         if len(ANNs) != 0:
-            ANNs[b].x = np.linspace(start=B.min(),stop=B.max(),num=100)
-            ANNs[b].forward()
-            currfig.plot(ANNs[b].x,ANNs[b].predicted,color="red",linewidth=3)
+            if args.bootstraps == None:
+                ANNs[b].x = np.linspace(start=B.min(),stop=B.max(),num=100)
+                ANNs[b].forward()
+                currfig.plot(ANNs[b].x,ANNs[b].predicted,color="red",linewidth=3)
+            else:
+                currfig = calc_gci.plot_FitPercentiles(ANNs[b][0].x,ANNs[b][0].y,ANNs[b])
         currfig.title("Site %i" %(b+1))
+        currfig.xlabel("Adams value")
+        currfig.ylabel("Occupancy within volume" )
         if args.pdf == True:
             currfig.savefig("Local_gci_site_%s.pdf" %(b+1))
         currfig.show(block=False)
@@ -263,8 +264,10 @@ if __name__ == "__main__":
     raw_input()
 
     if args.pdf == True:
-        from PyPDF2 import PdfFileMerger, PdfFileReader
-        filenames = glob.glob('Local_gci_site*pdf')
-        MergePDFs(filenames,'local_gci.pdf')
-        purge('./', 'Local_gci_*pdf')
-
+        try:
+            from PyPDF2 import PdfFileMerger, PdfFileReader
+            filenames = glob.glob('Local_gci_site*pdf')
+            MergePDFs(filenames,'local_gci.pdf')
+            purge('./', 'Local_gci_*pdf')
+        except ImportError:
+            pass
