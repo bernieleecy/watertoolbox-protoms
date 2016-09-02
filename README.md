@@ -1,2 +1,4 @@
 # watertoolbox-protoms
-What will be a set of tools to calculate the binding free energies of individual water molecules from GCMC titration simulations with ProtoMS.
+What will be a set of write-ups and examples for calculating free energies with GCMC.
+
+This repository is still in developement.
