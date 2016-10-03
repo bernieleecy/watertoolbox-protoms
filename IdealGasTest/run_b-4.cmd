@@ -19,7 +19,7 @@ pdbparams on
 boundary solvent
 #  GCMC specific parameters
 gcmc 0
-parfile /Users/rossg/Work/GCMC/IdealGas/dummy.tem
+parfile dummy.tem
 grand1 dummybath.pdb
 potential -4.000
 originx 0.0
