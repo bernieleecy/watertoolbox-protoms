@@ -1,0 +1,3 @@
+2 Oct. 2016
+python /Users/rossg/protoms-dev/tools/make_gcmcbox.py -b 2.5 2.5 2.5 5 5 5
+python /Users/rossg/protoms-dev/tools/distribute_waters.py -b 0 0 0 5 5 5 -m dummy.pdb -o dummybath.pdb --number 200
