@@ -3,7 +3,7 @@ parfile $PROTOMSHOME/parameter/solvents.ff
 parfile $PROTOMSHOME/parameter/amber14SB-residues.ff
 parfile $PROTOMSHOME/parameter/gaff14.ff
 solvent1 solvent.pdb
-outfolder out+1
+outfolder out-5
 streamheader off
 streamdetail off
 streamwarning warning
@@ -21,7 +21,7 @@ boundary solvent
 gcmc 0
 parfile dummy.tem
 grand1 dummy2.pdb
-potential 1.000
+potential -5.000
 originx 0.0
 originy 0.0
 originz 0.0

@@ -20,7 +20,7 @@ boundary solvent
 #  GCMC specific parameters
 gcmc 0
 parfile dummy.tem
-grand1 dummybath.pdb
+grand1 dummy2.pdb
 potential -4.000
 originx 0.0
 originy 0.0
