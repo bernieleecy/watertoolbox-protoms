@@ -1,0 +1,113 @@
+\documentclass[10pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{parskip}
+\usepackage{geometry} % to change the page dimensions
+\geometry{a4paper} % or letterpaper (US) or a5paper or....
+\geometry{margin=1in} % for example, change the margins to 2 inches all round
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\author{Gregory Ross}
+\title{Analytic expressions titration curves for multisite binding  }
+
+\begin{document}
+\maketitle
+\begin{abstract}
+
+\section{Statistical mechanics}
+This note outlines analytic expressions for the average number of molecules in a system derived from the grand canonical partition function. These expressions are used to validate the free energies calculated with the grand canonical integration (GCI) equation derived in the JACS manuscript. 
+\end{abstract}
+
+The grand canonical partition function, denoted $Z_G = Z_G(\mu,V,T)$, is a weighted sum of canonical partition functions, denoted $Z = Z(N,V,T)$:
+
+\begin{align}
+Z_G(\mu,V,T) &= \sum_{N=0}^\infty \exp(N\mu\beta) \, Z(N,V,T) \\
+&= \sum_{N=0}^\infty \exp(N\mu\beta - F(N)\beta),
+\end{align}
+
+where $F(N,V,T)\beta = -\ln\big(Z(N,V,T)\big)$ has been inserted in the second line, and all unnamed terms have their standard thermodynamic meaning. Constant $V$ and $T$ will be assumed throughout, so their dependence will be henceforth remain implicit.
+
+We are interested in how the average number of particles, denoted $\langle N \rangle$, varies with the applied chemical potential as this is integrated over in the GCI equation to give the ideal gas insertion free energies.  
+
+From statistical mechanics (see, for instance, McQuarrie), 
+\begin{align}
+\langle N \rangle(\mu) &= -kT\frac{\partial\ln(Z_G(\mu))}{\partial\mu} \notag\\
+&= \frac{\sum_{N=0}^\infty N\exp(N\mu\beta - F(N)\beta)}{\sum_{N=0}^\infty \exp(N\mu\beta - F(N)\beta)},
+\label{eq:aveN}
+\end{align}
+
+which is nothing more than the ensemble average of $N$ at a fixed $\mu$.
+
+The idea is to relate the above expression for $\langle N \rangle(\mu)$ to the GCI equation, which gives and expression for $F_\text{trans}$, defined as the free energy to transfer water molcules from ideal gas to the system of interest:
+
+\begin{align}
+F_\text{trans} = F(N) - F_\text{ideal}(N),
+\end{align}
+
+where $F_\text{ideal}(N)$ is the free energy for $N$ molecules of ideal gas. The GCI equation is given by
+
+\begin{align}
+ \beta(F_\text{trans}(N_f) - F_\text{trans}(N_i))  =  \langle N_f \rangle B_f -  \langle N_i\rangle B_i + \ln \left(\frac{\langle N_i \rangle !}{ \langle N_f\rangle !}\right) - \int_{B_i}^{B_f}  \langle N(B) \rangle d B, 
+ \label{eq:gci}
+\end{align}
+where $F_\text{trans}(N_f) - F_\text{trans}(N_i)$ is the change in the transfer free energy to change the average number of particles from $\langle N_i \rangle$ to  $\langle N_f \rangle$, and $B$ is the Adams value. The Adams value is related to $\mu$ via
+
+\begin{align}
+B = \mu\beta + \ln\frac{V}{\Lambda^3}.
+\end{align}
+
+As the analytic expression for $\langle N \rangle(\mu)$ (equation \ref{eq:aveN}) depends on the free energies $F(N)$, these can be compared to the free energies calculated by GCI (equation \ref{eq:gci}), which integrates over $\langle N \rangle(B)$.
+
+So that $\langle N \rangle(\mu)$ (equation \ref{eq:aveN}) can be related to GCI (equation \ref{eq:gci}), we need to express it terms of $B$. First, we require the explicit expression for $F_\text{ideal}(N)$:
+
+\begin{align}
+F_\text{ideal}(N)\beta = -\ln\left[\frac{1}{N!}\left(\frac{V}{\Lambda^3}\right)^N\right].
+\end{align}
+
+With this relation, the exponents in equation \ref{eq:aveN} can be expanded to
+
+\begin{align*}
+N\mu\beta - F(N)\beta  &= -N\mu\beta -  F_\text{trans}(N)\beta - F_\text{ideal}(N)\beta \\
+&= N(\mu\beta + \ln\frac{V}{\Lambda^3}) - F_\text{trans}(N)\beta  - \ln(N!) \\
+&= NB - F_\text{trans}(N)\beta  - \ln(N!)
+\end{align*}
+
+This allows us to rewrite equation \ref{eq:aveN} as 
+
+\begin{align}
+\langle N \rangle(B) = \frac{\sum_{N=0}^\infty N\exp(NB - F_\text{trans}(N)\beta  - \ln(N!))}{\sum_{N=0}^\infty \exp(NB - F_\text{trans}(N)\beta  - \ln(N!))}.
+\label{eq:aveN2}
+\end{align}
+
+\section{Multisite binding}
+In this section, expressions for $\langle N \rangle(B)$ (equation \ref{eq:aveN2}) will be explicitly written for systems that have capacities for up to three particles. All free energies will be defined in reference to $F(0)$, so that we set $F(0)=0$.
+
+\subsection{Single site}
+Dy definition, a single site system has a capacity for only one particle and adding any more particles is massively unfavourable. We represent this by setting all $F(N)=+\infty$ for all $N>1$. Putting this information into equation \ref{eq:aveN2} yields
+
+\begin{align*}
+\langle N \rangle(B) &= \frac{\exp(B - F_\text{trans}(1)\beta)}{1 + \exp(B - F_\text{trans}(1)\beta)} \\
+&= \frac{1}{1 + \exp(F_\text{trans}(1)\beta - B)},
+\end{align*}
+
+which is the same as the logistic equation in the JACS manuscript. There, it was explicitly proven that $F_\text{trans}(1)$ is equal to the free energy as calculated using GCI.
+
+\subsection{Two sites}
+In this case, $F(N) = +\infty$ for all $N>2$, giving us
+
+\begin{align*}
+\langle N \rangle(B) = \frac{\exp(B - F_\text{trans}(1)\beta) + 2\exp(2B - F_\text{trans}(2)\beta - \ln(2))}{1 + \exp(B - F_\text{trans}(1)\beta) + \exp(2B - F_\text{trans}(2)\beta - \ln(2))}
+\end{align*}
+
+\subsection{Three sites}
+Here, $F(N) = +\infty$ for all $N>3$, which gives us
+\begin{align*}
+\langle N \rangle(B) = \frac{\exp(B - F_\text{trans}(1)\beta) + 2\exp(2B - F_\text{trans}(2)\beta - \ln(2)) + 3\exp(3B - F_\text{trans}(3)\beta - \ln(6))}{1 + \exp(B - F_\text{trans}(1)\beta) + \exp(2B - F_\text{trans}(2)\beta - \ln(2)) + \exp(3B - F_\text{trans}(3)\beta - \ln(6))}
+\end{align*}
+
+And so on for more sites.
+
+\subsection{Notebook}
+The Jupyter notebook accompanying this write-up  numerically verifies the free energies calculated with GCI compared to the free energies contained in the expressions for $\langle N \rangle(B)$. The numerical agreement is excellent, and indicates that the GCI equation is correct.
+
+\end{document}
