@@ -31,6 +31,7 @@ def ParseOptions():
     parser.add_argument('-s','--skip',help="the number of initial snapshots that will be discarded when fitting",type=int,default=0)
     parser.add_argument('-o','--out',help="the name of the pickle data package that will save the processed PDB data and ANNs, default='data.pickle'",default="data.pickle")
     parser.add_argument('-i','--input',help="the name of the pickle data package that contains the pre-processed and saved ANNss, default= None",default=None)
+    parser.add_argument('--hydr', help="Hydration free energy for the water model used (kcal/mol). Default is -6.3 kcal/mol", type=float, default = -6.3)
     parser.add_argument('--radius',help="Radius of the hydration sites in Angstroms, default=1.4",type=float,default=1.4)
     parser.add_argument('--maxsites',type=int,help="Maximum number of hydration sites to consider; the highest occupied sites will be considered first. Default is all.",default=9999)
     parser.add_argument('--bootstraps',help="The number of bootstrap samples performed on the free energy estimates, default=None",type=int,default=None)
@@ -40,6 +41,9 @@ def ParseOptions():
     
     args = parser.parse_args()
     
+    if args.hydr > 0.0:
+        raise ValueError('The input hydration free energy must be a negative number')
+        
     return args
     
 #============================================================================================================
@@ -89,10 +93,68 @@ def number_in_box(pdbfiles, molname, atomname, box, skip):
                       if np.all(xyz < (box_max)) and np.all(xyz > (box_min)) :
                           found = found + 1.0
     return found/len(range(skip,len(pdbfiles.pdbs)))
+    
+def number_in_sphere(pdbfiles, molname, atomname, skip, sites, radius):
+    """
+    Function to count the number of molecules in a PDB file that are 
+    found within a distance (radius) from specified sites.
+    
+    Parameters
+    ----------
+    pdbfiles : PDBSet object
+        Objects containng the PDB trajectories.
+    molname : string
+        Name of the molecules containing the atoms of which the occurrence 
+        will be counted.
+    atomname : string
+        Name of the atoms of which the occurrence will be counted.
+    skip : int
+        Number of equilibration frames to skip when analysis the trajectory.
+    sites : ndarray
+        Array of x,y,z coordinates for the centers if the hydration sites.
+    radius : float
+        Radii of the spheres that define the hydration sites.
+        
+    Returns
+    -------
+    count : float
+        Average number of atoms found in the selected volume made up by
+        all the spherical hydration sites.
+    """
+    found = 0.0
+
+    for k in range(skip,len(pdbfiles.pdbs)):
+        pdb = pdbfiles.pdbs[k]
+        for i,res in pdb.residues.iteritems():
+            if res.name.lower() == molname.lower():
+                for atom in res.atoms:
+                    if atom.name.strip().lower() == atomname.lower():
+                        xyz = atom.coords
+                        counted = False   # to avoid double counting of waters if distance between sites is < radius*2
+                        for site in sites:
+                            if np.linalg.norm(site-xyz) <= radius and counted == False:
+                                found = found + 1.0
+                                counted = True
+
+    count = found/len(range(skip,len(pdbfiles.pdbs)))
+    return count
 
 def read_cluster(clusfile,max_sites=9999):
     """
-    Function to read the locations of the water oxygen atoms in a PDB file.
+    Function to read the locations of the water oxygen atoms in a PDB file
+    containing clustered hydration sites. The sites are grouped by their
+    residue numbers.
+    
+    Parameters
+    ----------
+    clusfile : string
+        Name of PDB file containing the clustered hydration sites.
+    
+    Returns
+    -------
+    site_centers : dict
+        Dictionary containing arrays with the x,y,z coordinates of 
+        oxygen atoms for all groups of hydration sites.
     """
     lines = [l for l in open(clusfile,'r').readlines() if len(l.split()) == 9 and l.split()[2]=='O00']
     sites_centers = OrderedDict()
@@ -111,10 +173,22 @@ def read_cluster(clusfile,max_sites=9999):
 
 def volume(centers, r=1.4):
     """
-    Works only for intersecting pairs of spheres with same radii.
+    Function to calculate the volume of multiple and possibly intersecting 
+    spheres given their centers. It works only for intersecting pairs of
+    spheres with same radii.
+    
     http://mathworld.wolfram.com/Sphere-SphereIntersection.html
+    
+    Parameters
+    ----------
+    centers : list of lists
+        Array containing a list of x,y,z coordinates.
+    r : radii of the spheres in angstrom.
 
-    centers is an list of lists
+    Returns
+    -------
+    V : float
+        Volume of the (intersecting) spheres in cubic angstroms.
     """
 
     # Volume of the spheres
@@ -137,42 +211,6 @@ def volume(centers, r=1.4):
                     intersections += (np.pi * (2.*r - d)**2 * (d**2 + 4*d*r)) / (12.*d)
     V = spheres-intersections
     return V
-#============================================================================================================
-# Set of functions to analyse free energy for supplied PDB coordinates of water molecules
-#============================================================================================================
-def read_cluster(clusfile,max_sites=9999):
-    lines = [l for l in open(clusfile,'r').readlines() if len(l.split()) == 9 and l.split()[2]=='O00']
-    sites_centers = OrderedDict()
-    for i,l in enumerate(lines):
-        if i == max_sites: break
-        tag = str(l.split()[4])   # define groups of sites based on their residue number
-        x = float(l.split()[5])
-        y = float(l.split()[6])
-        z = float(l.split()[7])
-        
-        if tag not in sites_centers:
-            sites_centers[tag] = []
-        
-        sites_centers[tag].append(np.array([x,y,z]))
-    return sites_centers
-
-def number_in_sphere(pdbfiles,molname,atomname,skip,sites,radius):
-    found = 0.0
-
-    for k in range(skip,len(pdbfiles.pdbs)):
-        pdb = pdbfiles.pdbs[k]
-        for i,res in pdb.residues.iteritems():
-            if res.name.lower() == molname.lower():
-                for atom in res.atoms:
-                    if atom.name.strip().lower() == atomname.lower():
-                        xyz = atom.coords
-                        counted = False   # to avoid double counting of waters if distance between sites is < radius*2
-                        for site in sites:
-                            if np.linalg.norm(site-xyz) <= radius and counted == False:
-                                found = found + 1.0
-                                counted = True
-
-    return found/len(range(skip,len(pdbfiles.pdbs)))
 
 #============================================================================================================
 # Read all pdb files and extract N and B
@@ -231,6 +269,7 @@ def read_gcmc(num_inputs, directories, rfilename, afilename, residue,atom, skip,
 # Miscellaneous
 #============================================================================================================
 def MergePDFs(filenames,outfname):
+    '''Merges multiple PDF files into a single one.'''
     from natsort import natsorted
     
     merger = PdfFileMerger()
@@ -240,7 +279,7 @@ def MergePDFs(filenames,outfname):
     merger.write(outfname)
 
 def purge(dire, pattern):
-    # Remove files in dir if they match a pattern
+    '''Removes files in a specified directory if they match a pattern.'''
     for f in os.listdir(dire):
         if re.search(pattern, f):
             os.remove(os.path.join(dire, f))
@@ -252,13 +291,13 @@ def purge(dire, pattern):
 #============================================================================================================
 if __name__ == "__main__":
     args = ParseOptions()
-    dG_hyd = -6.3
+    dG_hyd = args.hydr
 
     # Parse boxes/clusters
     #TODO: Fix potential conflict if boxes and clusters are supplied
     #TODO: If no boxes or clusters are supplied, what is the default behaviour?
     if args.boxes is not None:
-        mode= "boxes"
+        mode = "boxes"
         boxes = [read_box(b) for b in args.boxes]
         num_inputs = len(boxes)
     elif args.clusters is not None:
@@ -319,9 +358,9 @@ if __name__ == "__main__":
         y = np.array(N[b])
         N_range = np.arange(np.round(y.min()),np.round(y.max())+1)
         if mode == 'clusters':
-            Nwat = len(sites_centers[sites_centers.keys()[b]]) # Nwat = N of water sites??
+            Nwat = len(sites_centers[sites_centers.keys()[b]]) # Nwat = N of water sites
         elif mode == 'boxes':
-            Nwat = 1 # Nwat??    
+            Nwat = 1 # Nwat not properly defined
         if args.bootstraps == None:
             ANNs[b], models = calc_gci.fit_ensemble(x=x,y=y,size=steps[b],verbose=False,pin_min=fit_dict["pin_min"],pin_max=fit_dict["pin_max"],cost=fit_dict["cost"],c=fit_dict["c"],randstarts=fit_dict["randstarts"],repeats=fit_dict["repeats"],iterations=fit_dict["iterations"])
             dG_single = calc_gci.insertion_pmf(N_range, ANNs[b], volumes[b])
@@ -341,7 +380,7 @@ if __name__ == "__main__":
                 #inflection_dGs[boot] = -ANNs_boot.weights[0][0]/ANNs[b].weights[0][1]*0.592        # To estimate the free energy from the point of inflection.
             print " %4.2f  %4.2f %16.2f     %18.2f  %18.2f" %(b+1, Nwat, gci_dGs.mean() , gci_dGs.mean()- dG_hyd*Nwat, gci_dGs.std() )
 
-    # If using clusters, then the binding free energy of the all the clusters is calculated.
+    # If using clusters, then the binding free energy of all the clusters is calculated.
     # The binding free energy calculated is relative to the lowest number of inserted molecules
     # For the standard state volume correction, the entire volume encompassed by the clusters is considered
     if args.clusters is not None:
@@ -390,6 +429,9 @@ if __name__ == "__main__":
     #-------------------------------------------------------------------
     print "\n"
     
+    #TODO: generate a single PDF file from the start, rather than 
+    #      make multiple ones and then merge them. 
+    
     for b in range(num_inputs):
         plt.figure("GCMC Titration of Box "+str(b+1))
         currfig = plt
@@ -408,7 +450,6 @@ if __name__ == "__main__":
             currfig.savefig("Local_gci_site_%s.pdf" %(b+1))
         currfig.show(block=False)
     
-
     if args.pdf == True:
         try:
             from PyPDF2 import PdfFileMerger, PdfFileReader
