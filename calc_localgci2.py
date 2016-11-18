@@ -1,5 +1,4 @@
-# Written by Gregory A. Ross
-# Contributed to by Matteo Aldeghi
+# Written by Gregory A. Ross and Matteo Aldeghi
 
 import numpy as np
 import glob
