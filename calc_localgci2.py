@@ -184,14 +184,13 @@ def main(args):
                         bootstraps=args.bootstraps, outfn='local_gci.pdf')
 
         if args.calc in ('mult', 'all'):
-            gci_multiple_sites(num_inputs=args.num_inputs, steps=args.steps, fit_options=args.fit_options,
-                               dg_hydr=args.hydr, B=B, N=N, centers=sites_centers,
-                               radius=args.radius, bootstraps=args.bootstraps)
+            ANN_total, N_total = gci_multiple_sites(num_inputs=args.num_inputs, steps=args.steps, fit_options=args.fit_options,
+                               dg_hydr=args.hydr, B=B, N=N, centers=sites_centers, radius=args.radius, bootstraps=args.bootstraps)
             # Make Figure
             # -----------
             # TODO: return ANN from gci_cluster so to use it in make_figure
-            # make_figure(B=B, N=N, ANNs=ANNs, num_inputs=args.num_inputs,
-            #             bootstraps=args.bootstraps, outfn='network_local_gci.pdf')
+            make_figure_all_sites(B=B, N=N_total, ANNs=ANN_total, bootstraps=args.bootstraps,
+                              outfn='all_sites_local_gci.pdf')
 
     else:
         raise InputError('--boxes, --clusters', 'Either --boxes or --clusters must be defined')
@@ -585,6 +584,8 @@ def gci_multiple_sites(num_inputs, steps, fit_options, dg_hydr, B, N, centers, r
         dG_single = calc_gci.insertion_pmf(N_range, ANN_total, total_volume)
         print " %5.2f   %5.2f %16.2f     %18.2f" % (
             n_min, n_max, dG_single[1], dG_single[1] - dg_hydr * (n_max - n_min))
+
+        return ANN_total, y
     else:
         print "'N min' 'N max' 'Ideal gas transfer energy' 'Binding energy 'Standard deviation'"
         indices = range(x.size)
@@ -605,7 +606,7 @@ def gci_multiple_sites(num_inputs, steps, fit_options, dg_hydr, B, N, centers, r
         print " %5.2f  %5.2f %16.2f     %18.2f  %18.2f" % (
             n_min, n_max, gci_dGs.mean(), gci_dGs.mean() - dg_hydr * (n_max - n_min), gci_dGs.std())
 
-    # TODO: return ANN
+        return ANNs_boot, y
 
 
 # ============================================================================================================
@@ -631,6 +632,22 @@ def make_figure(B, N, ANNs, num_inputs, bootstraps, outfn='local_gci.pdf'):
     plt.tight_layout()
     fig.savefig(outfn)
 
+def make_figure_all_sites(B, N, ANNs, bootstraps, outfn="all_sites_local_gci.pdf"):
+    fig, axes = plt.subplots(1, sharex=True, figsize=(8.0, 5.0))
+
+    axes.scatter(B, N, color="black")
+    if bootstraps is None:
+        ANNs.x = np.linspace(start=B.min(), stop=B.max(), num=100)
+        ANNs.forward()
+        axes.plot(ANNs.x, ANNs.predicted, color="red", linewidth=3)
+    else:
+        plot_FitPercentiles2(ANNs[0].x, ANNs[0].y, ANNs, ax=axes)
+    axes.set_title("Titration over all sites")
+    axes.set_xlabel("Adams value")
+    axes.set_ylabel("Occupancy within all volumes")
+
+    plt.tight_layout()
+    fig.savefig(outfn)
 
 def plot_FitPercentiles2(B, N, gcmc_models, resolution=None, level1=None, level1_colour=None, level2=None,
                          level2_colour=None, median_colour=None, smoothness=None, ax=None):
