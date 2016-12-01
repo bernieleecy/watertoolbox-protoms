@@ -472,9 +472,9 @@ def gci_individual_sites(num_inputs, steps, fit_options, dg_hydr, B, N, mode, vo
     print "(kcal/mol)"
     if bootstraps is not None:
         print "Values and error bars calculated using %i bootstrap samples of the titration data." % bootstraps
-        print "'Site' 'Nwat' 'Ideal gas transfer energy' 'Binding energy'   'Standard deviation'"
+        print "'Site' 'Nwat' 'GCI transfer energy' 'GCI binding energy' 'Standard deviation' 'Inflection point' 'Inflection binding energy' 'Standard deviation'"
     else:
-        print "'Site' 'Nwat' 'Ideal gas transfer energy' 'Binding energy'"
+        print "'Site' 'Nwat' 'GCI transfer energy' ''GCI binding energy' 'Inflection point' 'Inflection binding energy'"
 
     ANNs = {}
     for b in range(num_inputs):
@@ -495,10 +495,14 @@ def gci_individual_sites(num_inputs, steps, fit_options, dg_hydr, B, N, mode, vo
                                                     repeats=fit_options["repeats"],
                                                     iterations=fit_options["iterations"])
             dG_single = calc_gci.insertion_pmf(N_range, ANNs[b], volumes[b])
-            print " %4.2f   %4.2f %16.2f     %18.2f" % (b + 1, Nwat, dG_single[1], dG_single[1] - dg_hydr * Nwat)
+            inflection_dG = -ANNs[b].weights[0][0] / ANNs[b].weights[0][1] * 0.592
+            print
+            print " %4.2f   %4.2f %14.2f   %16.2f   %18.2f   %18.2f" % (
+                b + 1, Nwat, dG_single[1], dG_single[1] - dg_hydr * Nwat, inflection_dG, inflection_dG - dg_hydr * Nwat)
         else:
             indices = range(x.size)
             gci_dGs = np.zeros(bootstraps)
+            inflection_dGs = np.zeros(bootstraps)
             ANNs[b] = []
             for boot in range(bootstraps):
                 sample_inds = np.random.choice(indices, size=x.size)
@@ -514,8 +518,12 @@ def gci_individual_sites(num_inputs, steps, fit_options, dg_hydr, B, N, mode, vo
                                                           iterations=fit_options["iterations"])
                 ANNs[b].append(ANNs_boot)
                 gci_dGs[boot] = calc_gci.insertion_pmf(N_range, ANNs_boot, volume=volumes[b])[-1]
-            print " %4.2f  %4.2f %16.2f     %18.2f  %18.2f" % (
-                b + 1, Nwat, gci_dGs.mean(), gci_dGs.mean() - dg_hydr * Nwat, gci_dGs.std())
+                inflection_dGs[boot] = -ANNs_boot.weights[0][0] / ANNs_boot.weights[0][1] * 0.592
+                infl_mean = inflection_dGs.mean()
+                infl_sd = inflection_dGs.std()
+            print " %4.2f   %4.2f %15.2f    %18.2f   %18.2f %18.2f    %18.2f     %18.2f" % (
+                b + 1, Nwat, gci_dGs.mean(), gci_dGs.mean() - dg_hydr * Nwat, gci_dGs.std(),
+                infl_mean, infl_mean - dg_hydr * Nwat, infl_sd)
 
     return ANNs
 
