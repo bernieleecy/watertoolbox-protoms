@@ -172,6 +172,9 @@ def main(args):
             N = data["N"]
             volumes = data['volumes']
 
+        #TODO: Either figure out a comprimise with the volume correction or get rid of it
+        volumes = [30.0] * args.num_inputs       # Setting to standard state of water so that contribution is 0.
+
         # Fit the ANN and carry out GCI
         # -----------------------------
         if args.calc in ('ind', 'all'):
@@ -515,7 +518,6 @@ def gci_individual_sites(num_inputs, steps, fit_options, dg_hydr, B, N, mode, vo
                 b + 1, Nwat, gci_dGs.mean(), gci_dGs.mean() - dg_hydr * Nwat, gci_dGs.std())
 
     return ANNs
-
 
 def gci_multiple_sites(num_inputs, steps, fit_options, dg_hydr, B, N, centers, radius=1.4, bootstraps=None):
     """
