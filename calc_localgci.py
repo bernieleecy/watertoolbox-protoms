@@ -13,9 +13,10 @@ import matplotlib.pyplot as plt
 
 protomshome = os.environ["PROTOMSHOME"]
 sys.path.append(protomshome + "/tools")
+sys.path.append(protomshome + '/python/protomslib')
 import simulationobjects
-import calc_gci
 from simulationobjects import ResultsFile
+import protomslib.free_energy.gcmc_free_energy_base as calc_gci
 import argparse
 
 
@@ -198,8 +199,8 @@ def main(args):
     else:
         raise InputError('--boxes, --clusters', 'Either --boxes or --clusters must be defined')
 
-    print "\nType enter to quit\n>"
-    raw_input()
+    print("\nType enter to quit\n>")
+    input()
 
 
 # ============================================================================================================
@@ -242,7 +243,7 @@ def number_in_box(pdbfiles, molname, atomname, box, skip):
     #    for pdb in pdbfiles.pdbs :
     for k in range(skip, len(pdbfiles.pdbs)):
         pdb = pdbfiles.pdbs[k]
-        for i, res in pdb.residues.iteritems():
+        for i, res in pdb.residues.items():
             if res.name.lower() == molname.lower():
                 for atom in res.atoms:
                     if atom.name.strip().lower() == atomname.lower():
@@ -283,7 +284,7 @@ def number_in_sphere(pdbfiles, molname, atomname, skip, sites, radius):
 
     for k in range(skip, len(pdbfiles.pdbs)):
         pdb = pdbfiles.pdbs[k]
-        for i, res in pdb.residues.iteritems():
+        for i, res in pdb.residues.items():
             if res.name.lower() == molname.lower():
                 for atom in res.atoms:
                     if atom.name.strip().lower() == atomname.lower():
@@ -315,7 +316,8 @@ def read_cluster(clusfile, max_sites=9999):
         Dictionary containing arrays with the x,y,z coordinates of 
         oxygen atoms for all groups of hydration sites.
     """
-    lines = [l for l in open(clusfile, 'r').readlines() if len(l.split()) == 9 and l.split()[2] == 'O00']
+    # made it >8 rather than equals 9 because my pdb file has 10 things in each line
+    lines = [l for l in open(clusfile, 'r').readlines() if len(l.split()) > 8 and l.split()[2] == 'O00']
     sites_centers = OrderedDict()
     for i, l in enumerate(lines):
         if i == max_sites:
@@ -382,7 +384,7 @@ def read_gcmc(num_inputs, directories, rfilename, afilename, residue, atom, skip
     Reads PDB files and extract N and Adams.
     """
     if mode not in ["boxes", "clusters"]:
-        print "Error in read_gcmc. Mode must be either 'boxes' or 'clusters'"
+        print("Error in read_gcmc. Mode must be either 'boxes' or 'clusters'")
         return
     B = []
     N = {}
@@ -391,11 +393,11 @@ def read_gcmc(num_inputs, directories, rfilename, afilename, residue, atom, skip
     for b in range(num_inputs):
         N[b] = []
         ANNs[b] = []
-    print "\nREADING GCMC DATA:"
+    print("\nREADING GCMC DATA:")
     for dirs in directories:
         folders = glob.glob(dirs)
         if len(folders) == 0:
-            print "\nError. No folder(s) matching '%s'. Exiting program.\n" % directories
+            print("\nError. No folder(s) matching '%s'. Exiting program.\n" % directories)
             sys.exit()
         for folder in folders:
             results = ResultsFile()
@@ -412,7 +414,7 @@ def read_gcmc(num_inputs, directories, rfilename, afilename, residue, atom, skip
                 pdbfiles = simulationobjects.PDBSet()
                 pdbfiles.read(pdbfilenames[0])
             else:
-                print "\nError. No results file matching %s. Exiting program\n" % folder + "/" + rfilename
+                print("\nError. No results file matching %s. Exiting program\n" % folder + "/" + rfilename)
                 sys.exit()
             adams = np.array([snap.bvalue for snap in results.snapshots])
             B.append(adams[0])
@@ -422,11 +424,12 @@ def read_gcmc(num_inputs, directories, rfilename, afilename, residue, atom, skip
                     v = structures[b]['len'][0] * structures[b]['len'][1] * structures[b]['len'][2]
                     volumes.append(v)
                 elif mode == 'clusters':
+                    # i assume structures[structures.keys()[b]] is trying to access values
                     N[b].append(
-                        number_in_sphere(pdbfiles, residue, atom, skip, structures[structures.keys()[b]], radius))
+                        number_in_sphere(pdbfiles, residue, atom, skip, list(structures.values())[b], radius))
                     volumes.append(4.0 / 3.0 * np.pi * radius ** 3)
 
-            print "...file %s has been read and processed." % pdbfilenames[0]
+            print("...file %s has been read and processed." % pdbfilenames[0])
     B = np.array(B)
     return B, N, volumes
 
@@ -468,13 +471,13 @@ def gci_individual_sites(num_inputs, steps, fit_options, dg_hydr, B, N, mode, vo
         Description ...
     """
 
-    print "\nINDIVIDUAL FREE ENERGIES:"
-    print "(kcal/mol)"
+    print("\nINDIVIDUAL FREE ENERGIES:")
+    print("(kcal/mol)")
     if bootstraps is not None:
-        print "Values and error bars calculated using %i bootstrap samples of the titration data." % bootstraps
-        print "'Site' 'Nwat' 'Ideal gas transfer energy' 'Binding energy'   'Standard deviation'"
+        print("Values and error bars calculated using %i bootstrap samples of the titration data." % bootstraps)
+        print("'Site' 'Nwat' 'Ideal gas transfer energy' 'Binding energy'   'Standard deviation'")
     else:
-        print "'Site' 'Nwat' 'Ideal gas transfer energy' 'Binding energy'"
+        print("'Site' 'Nwat' 'Ideal gas transfer energy' 'Binding energy'")
 
     ANNs = {}
     for b in range(num_inputs):
@@ -482,7 +485,9 @@ def gci_individual_sites(num_inputs, steps, fit_options, dg_hydr, B, N, mode, vo
         y = np.array(N[b])
         N_range = np.arange(np.round(y.min()), np.round(y.max()) + 1)
         if mode == 'clusters':
-            Nwat = len(centers[centers.keys()[b]])  # Nwat = N of water sites
+            # centers[centers.keys()[b]] seems to be accessing the coords again?
+            # rework for python 3
+            Nwat = len(list(centers.values())[b])  # Nwat = N of water sites
         elif mode == 'boxes':
             Nwat = 1  # Nwat not properly defined
         if bootstraps == None:
@@ -495,7 +500,8 @@ def gci_individual_sites(num_inputs, steps, fit_options, dg_hydr, B, N, mode, vo
                                                     repeats=fit_options["repeats"],
                                                     iterations=fit_options["iterations"])
             dG_single = calc_gci.insertion_pmf(N_range, ANNs[b], volumes[b])
-            print " %4.2f   %4.2f %16.2f     %18.2f" % (b + 1, Nwat, dG_single[1], dG_single[1] - dg_hydr * Nwat)
+            # originally dG_single[1]
+            print(" %4.2f   %4.2f %16.2f     %18.2f" % (b + 1, Nwat, dG_single[1], dG_single[1] - dg_hydr * Nwat))
         else:
             indices = range(x.size)
             gci_dGs = np.zeros(bootstraps)
@@ -514,8 +520,8 @@ def gci_individual_sites(num_inputs, steps, fit_options, dg_hydr, B, N, mode, vo
                                                           iterations=fit_options["iterations"])
                 ANNs[b].append(ANNs_boot)
                 gci_dGs[boot] = calc_gci.insertion_pmf(N_range, ANNs_boot, volume=volumes[b])[-1]
-            print " %4.2f  %4.2f %16.2f     %18.2f  %18.2f" % (
-                b + 1, Nwat, gci_dGs.mean(), gci_dGs.mean() - dg_hydr * Nwat, gci_dGs.std())
+            print(" %4.2f  %4.2f %16.2f     %18.2f  %18.2f" % (
+                b + 1, Nwat, gci_dGs.mean(), gci_dGs.mean() - dg_hydr * Nwat, gci_dGs.std()))
 
     return ANNs
 
@@ -551,11 +557,11 @@ def gci_multiple_sites(num_inputs, steps, fit_options, dg_hydr, B, N, centers, r
 
     """
 
-    print '\nWHOLE CLUSTER FREE ENERGY:'
-    print "(kcal/mol)"
-    print "Relative free energies (in kcal/mol) for all the clusters in the combined volume:"
-    print 'The free energy is difference between the minimum number (N min) to the maximum number (N max)'
-    print 'A correction removes the contribution from overlapping volumes\n'
+    print('\nWHOLE CLUSTER FREE ENERGY:')
+    print("(kcal/mol)")
+    print("Relative free energies (in kcal/mol) for all the clusters in the combined volume:")
+    print('The free energy is difference between the minimum number (N min) to the maximum number (N max)')
+    print('A correction removes the contribution from overlapping volumes\n')
     # Counting the total volume, total number of inserted molecules, and maximum number of steps for the ANN
     total_volume = volume(centers=centers, r=radius)
     total_mols = []
@@ -574,7 +580,7 @@ def gci_multiple_sites(num_inputs, steps, fit_options, dg_hydr, B, N, centers, r
     N_range = np.array((n_min, n_max))
     # Now calculate the free energy of using the volumes of all the clusters
     if bootstraps is None:
-        print "'N min' 'N max' 'Ideal gas transfer energy' 'Binding energy"
+        print("'N min' 'N max' 'Ideal gas transfer energy' 'Binding energy")
         ANN_total, models = calc_gci.fit_ensemble(x=x, y=y, size=total_steps, verbose=False,
                                                   pin_min=fit_options["pin_min"],
                                                   pin_max=fit_options["pin_max"],
@@ -584,12 +590,12 @@ def gci_multiple_sites(num_inputs, steps, fit_options, dg_hydr, B, N, centers, r
                                                   repeats=fit_options["repeats"],
                                                   iterations=fit_options["iterations"])
         dG_single = calc_gci.insertion_pmf(N_range, ANN_total, total_volume)
-        print " %5.2f   %5.2f %16.2f     %18.2f" % (
-            n_min, n_max, dG_single[1], dG_single[1] - dg_hydr * (n_max - n_min))
+        print(" %5.2f   %5.2f %16.2f     %18.2f" % (
+            n_min, n_max, dG_single[1], dG_single[1] - dg_hydr * (n_max - n_min)))
 
         return ANN_total, y
     else:
-        print "'N min' 'N max' 'Ideal gas transfer energy' 'Binding energy 'Standard deviation'"
+        print("'N min' 'N max' 'Ideal gas transfer energy' 'Binding energy 'Standard deviation'")
         indices = range(x.size)
         gci_dGs = np.zeros(bootstraps)
         for boot in range(bootstraps):
@@ -605,8 +611,8 @@ def gci_multiple_sites(num_inputs, steps, fit_options, dg_hydr, B, N, centers, r
                                                       repeats=fit_options["repeats"],
                                                       iterations=fit_options["iterations"])
             gci_dGs[boot] = calc_gci.insertion_pmf(N_range, ANNs_boot, volume=total_volume)[-1]
-        print " %5.2f  %5.2f %16.2f     %18.2f  %18.2f" % (
-            n_min, n_max, gci_dGs.mean(), gci_dGs.mean() - dg_hydr * (n_max - n_min), gci_dGs.std())
+        print(" %5.2f  %5.2f %16.2f     %18.2f  %18.2f" % (
+            n_min, n_max, gci_dGs.mean(), gci_dGs.mean() - dg_hydr * (n_max - n_min), gci_dGs.std()))
 
         return ANNs_boot, y
 
@@ -616,7 +622,8 @@ def gci_multiple_sites(num_inputs, steps, fit_options, dg_hydr, B, N, centers, r
 # ============================================================================================================
 def make_figure(B, N, ANNs, num_inputs, bootstraps, outfn='local_gci.pdf'):
     # TODO: make it usable also for the results of gci_cluster()
-    fig, axes = plt.subplots(len(ANNs), sharex=True, figsize=(8.0, 5.0*num_inputs))
+    print(len(ANNs))
+    fig, axes = plt.subplots(len(ANNs), figsize=(8.0, 5.0*num_inputs))
 
     for b in range(num_inputs):
         axes[b].scatter(B, N[b], color="black")
