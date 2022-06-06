@@ -316,8 +316,9 @@ def read_cluster(clusfile, max_sites=9999):
         Dictionary containing arrays with the x,y,z coordinates of 
         oxygen atoms for all groups of hydration sites.
     """
-    # made it >8 rather than equals 9 because my pdb file has 10 things in each line
-    lines = [l for l in open(clusfile, 'r').readlines() if len(l.split()) > 8 and l.split()[2] == 'O00']
+    # made it >7 rather than equals 9 because the convertwater.py pdb file can have 8 items
+    # while my clusters pdb file has 10 items
+    lines = [l for l in open(clusfile, 'r').readlines() if len(l.split()) > 7 and l.split()[2] == 'O00']
     sites_centers = OrderedDict()
     for i, l in enumerate(lines):
         if i == max_sites:
@@ -331,6 +332,8 @@ def read_cluster(clusfile, max_sites=9999):
             sites_centers[tag] = []
 
         sites_centers[tag].append(np.array([x, y, z]))
+    # added print statement to let me check if waters are detected early on
+    print(sites_centers)
     return sites_centers
 
 
